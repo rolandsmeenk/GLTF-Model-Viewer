@@ -1,6 +1,8 @@
-﻿using System;
+﻿#define OPEN_ALL_FILES_IN_ORDER
+using System;
 using System.IO;
 using System.Threading.Tasks;
+using System.Collections.Generic;
 
 #if ENABLE_WINMD_SUPPORT
 using Windows.Storage;
@@ -12,6 +14,8 @@ internal static class FileDialogHelper
     internal static async Task<string> PickGLTFFileAsync()
     {
 #if ENABLE_WINMD_SUPPORT
+
+#if !OPEN_ALL_FILES_IN_ORDER
         var pickCompleted = new TaskCompletionSource<string>();
 
         UnityEngine.WSA.Application.InvokeOnUIThread(
@@ -42,9 +46,59 @@ internal static class FileDialogHelper
 
         return (pickCompleted.Task.Result);
 
-#else             
+#else
+        string file = null;
+
+        if (fileList == null)
+        {
+            fileList = new List<string>();
+
+            var folder = KnownFolders.Objects3D;
+            var folderFiles = await folder.GetFilesAsync();
+
+            foreach (var folderFile in folderFiles)
+            {
+                if (IsGltfFile(folderFile.Path))
+                {
+                    fileList.Add(file);
+                }
+            }
+        }
+        currentFileIndex++;
+
+        if (currentFileIndex >= fileList.Count)
+        {
+            currentFileIndex = 0;
+        }
+        if (fileList.Count > 0)
+        {
+            file = fileList[currentFileIndex];
+        }
+        return (file);
+
+#endif // OPEN_ALL_FILES_IN_ORDER
+
+#else
         throw new InvalidOperationException(
             "Sorry, no file dialog support for other platforms here");
-#endif
+#endif // ENABLE_WINMD_SUPPORT
     }
+
+#if OPEN_ALL_FILES_IN_ORDER
+
+    static bool IsGltfFile(string filePath)
+    {
+        var extension = Path.GetExtension(filePath);
+
+        return (
+            (string.Compare(extension, GLTF_EXTENSION, false) == 0) ||
+            (string.Compare(extension, GLB_EXTENSION, false) == 0));
+    }
+
+    static int currentFileIndex;
+    static List<string> fileList;
+    static readonly string GLTF_EXTENSION = ".gltf";
+    static readonly string GLB_EXTENSION = ".glb";
+
+#endif // OPEN_ALL_FILES_IN_FOLDER
 }
